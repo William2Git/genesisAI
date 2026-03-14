@@ -59,7 +59,7 @@ function App() {
           </div>
           <div className="fdf-brand-text">
             <h1 className="fdf-title">Food Discount Finder</h1>
-            <p className="fdf-tagline">Responsive demo website for a 2-day hackathon</p>
+            <p className="fdf-tagline">Helping students find affordable, yet delicious food near them</p>
           </div>
         </div>
         <nav className="fdf-nav">
