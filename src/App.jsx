@@ -82,6 +82,9 @@ function App() {
   const [foodWish, setFoodWish] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [speechLang, setSpeechLang] = useState('en-US')
+  const [yelpRestaurants, setYelpRestaurants] = useState(null)
+  const [yelpLoading, setYelpLoading] = useState(false)
+  const [yelpError, setYelpError] = useState(null)
 
   const recognitionRef = useRef(null)
   const transcriptRef = useRef('')
@@ -157,9 +160,62 @@ function App() {
     }
   }
 
+  const displayPlaces = yelpRestaurants != null ? yelpRestaurants : nearbyPlaces
+  const isYelpSource = yelpRestaurants != null && yelpRestaurants.length > 0
+  const baseList = isYelpSource ? (yelpRestaurants || []) : nearbyPlaces
   const remainingPlaces = selectedPlace
-    ? nearbyPlaces.filter((p) => p.place_id !== selectedPlace.place_id)
-    : nearbyPlaces
+    ? baseList.filter((p, i) =>
+        isYelpSource
+          ? `yelp-${i}-${p.name}` !== (selectedPlace.place_id || selectedPlace.id)
+          : (p.place_id || p.id) !== (selectedPlace.place_id || selectedPlace.id)
+      )
+    : baseList
+
+  const handleSearchSubmit = async (e) => {
+    e.preventDefault()
+    const query = foodWish.trim()
+    if (!query) return
+    setYelpError(null)
+    setYelpLoading(true)
+    setYelpRestaurants(null)
+    try {
+      const res = await fetch('http://localhost:5000/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setYelpError(data.error || 'Search failed')
+        setYelpRestaurants([])
+        return
+      }
+      setYelpRestaurants(data.restaurants || [])
+    } catch (err) {
+      setYelpError(err.message || 'Could not reach the server. Is the Python backend running on port 5000?')
+      setYelpRestaurants([])
+    } finally {
+      setYelpLoading(false)
+    }
+  }
+
+  const yelpToPlace = (r, index) => ({
+    id: `yelp-${index}-${r.name}`,
+    place_id: `yelp-${index}-${r.name}`,
+    name: r.name,
+    vicinity: r.address,
+    rating: r.rating,
+    geometry: {
+      location: { lat: r.latitude, lng: r.longitude },
+    },
+  })
+
+  const handleShowRouteYelp = (restaurant, index) => {
+    const place = yelpToPlace(restaurant, index)
+    setSelectedPlace(place)
+    setSelectedDestination({ lat: restaurant.latitude, lng: restaurant.longitude })
+    setRouteViewActive(true)
+  }
 
   return (
     <div className={`fdf-app${routeViewActive ? ' fdf-app--route-view' : ''}`}>
@@ -210,7 +266,7 @@ function App() {
                 <option value="ru-RU">Русский</option>
               </select>
             </div>
-            <div className="fdf-chatbar" aria-label="Ask the food AI">
+            <form className="fdf-chatbar" aria-label="Ask the food AI" onSubmit={handleSearchSubmit}>
               <button
                 type="button"
                 className="fdf-chatbar-icon-button"
@@ -224,16 +280,25 @@ function App() {
                 placeholder="Ask anything about nearby food deals..."
                 value={foodWish}
                 onChange={(e) => setFoodWish(e.target.value)}
+                disabled={yelpLoading}
               />
+              <button
+                type="submit"
+                className="fdf-chatbar-icon-button"
+                aria-label="Search restaurants"
+                disabled={yelpLoading || !foodWish.trim()}
+              >
+                <SendIcon />
+              </button>
               <button
                 type="button"
                 className={`fdf-chatbar-mic${isRecording ? ' fdf-chatbar-mic--active' : ''}`}
                 onClick={handleVoiceInput}
                 aria-label={isRecording ? 'Stop and use transcript' : 'Start voice input'}
               >
-                {isRecording ? <SendIcon /> : <MicIcon />}
+                <MicIcon />
               </button>
-            </div>
+            </form>
             <p className="fdf-ai-helper">
               This will power a real-time Q&A assistant to suggest nearby deals based on your cravings.
             </p>
@@ -247,12 +312,14 @@ function App() {
             <h3 className="fdf-deals-title">Restaurants near you.</h3>
             <p className="fdf-deals-hint">Use “Use My Location” on the map to load real restaurants.</p>
             <ul className="fdf-deal-list">
-              {nearbyPlaces.length === 0 && (
+              {!yelpLoading && displayPlaces.length === 0 && (
                 <li className="fdf-deal-item fdf-deal-item--empty">
-                  No nearby restaurants yet. Allow location and click “Use My Location” below.
+                  {yelpRestaurants !== null
+                    ? 'No restaurants found. Try a different search.'
+                    : 'No nearby restaurants yet. Search above or allow location and click'} “Use My Location” below.
                 </li>
               )}
-              {nearbyPlaces.map((place) => {
+              {!isYelpSource && displayPlaces.map((place) => {
                 const location = place.geometry?.location
                 const lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
                 const lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
@@ -288,6 +355,23 @@ function App() {
                   </li>
                 )
               })}
+              {isYelpSource &&
+                displayPlaces.map((r, index) => (
+                  <li key={`yelp-${index}-${r.name}`} className="fdf-deal-item">
+                    <div className="fdf-deal-info">
+                      <strong className="fdf-deal-name">{r.name}</strong>
+                      <span className="fdf-deal-details">{r.address}</span>
+                      <span className="fdf-deal-price">{r.rating != null ? `${r.rating}⭐` : '—'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="fdf-btn fdf-btn-secondary"
+                      onClick={() => handleShowRouteYelp(r, index)}
+                    >
+                      Show Route
+                    </button>
+                  </li>
+                ))}
             </ul>
           </section>
 
