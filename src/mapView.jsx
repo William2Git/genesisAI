@@ -4,7 +4,7 @@ import { GoogleMap, Marker, useLoadScript, DirectionsRenderer } from '@react-goo
 
 const containerStyle = {
   width: '100%',
-  height: '350px',
+  height: '420px',
   borderRadius: '16px',
   overflow: 'hidden',
 };
@@ -15,10 +15,11 @@ function MapView({ destination }) {
   const [center, setCenter] = useState(defaultCenter);
   const [userLocation, setUserLocation] = useState(null);
   const [directions, setDirections] = useState(null);
+  const [map, setMap] = useState(null);
 
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries: ['places'],
+    libraries: ['places', 'marker'],
   });
 
   const requestUserLocation = useCallback(() => {
@@ -71,6 +72,22 @@ function MapView({ destination }) {
     );
   }, [isLoaded, userLocation, destination]);
 
+  // Create / update an Advanced Marker tied to the current center
+  useEffect(() => {
+    if (!map || !window.google || !window.google.maps || !window.google.maps.marker) return;
+
+    const { AdvancedMarkerElement } = window.google.maps.marker;
+
+    const marker = new AdvancedMarkerElement({
+      map,
+      position: center,
+    });
+
+    return () => {
+      marker.map = null;
+    };
+  }, [map, center]);
+
   if (loadError) return <div>Failed to load map.</div>;
   if (!isLoaded) return <div>Loading map…</div>;
 
@@ -91,7 +108,10 @@ function MapView({ destination }) {
         options={{
           disableDefaultUI: false,
           clickableIcons: true,
+          mapId: import.meta.env.VITE_GOOGLE_MAP_ID,
         }}
+        onLoad={setMap}
+        onUnmount={() => setMap(null)}
       >
         {userLocation && <Marker position={userLocation} label="You" />}
         {destination && <Marker position={destination} label="Food" />}
