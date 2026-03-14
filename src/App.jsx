@@ -59,7 +59,7 @@ function App() {
           </div>
           <div className="fdf-brand-text">
             <h1 className="fdf-title">Food Discount Finder</h1>
-            <p className="fdf-tagline">Helping students find affordable, yet delicious food near them</p>
+            <p className="fdf-tagline">Helping students find affordable, yet delicious food nearby</p>
           </div>
         </div>
         <nav className="fdf-nav">
