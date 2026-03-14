@@ -85,6 +85,9 @@ function App() {
   const [foodWish, setFoodWish] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [speechLang, setSpeechLang] = useState('en-US')
+  const [yelpRestaurants, setYelpRestaurants] = useState(null)
+  const [yelpLoading, setYelpLoading] = useState(false)
+  const [yelpError, setYelpError] = useState(null)
   const [comparisonResult, setComparisonResult] = useState(null)
   const [isComparing, setIsComparing] = useState(false)
 
@@ -198,9 +201,9 @@ function App() {
       const res = await fetch(compareUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          restaurant: { name: selected.name, details: selected.details || selected.vicinity, price_level: selected.price_level, rating: selected.rating }, 
-          otherRestaurants: others.map(o => ({ name: o.name, details: o.details || o.vicinity, price_level: o.price_level, rating: o.rating })) 
+        body: JSON.stringify({
+          restaurant: { name: selected.name, details: selected.details || selected.vicinity, price_level: selected.price_level, rating: selected.rating },
+          otherRestaurants: others.map(o => ({ name: o.name, details: o.details || o.vicinity, price_level: o.price_level, rating: o.rating }))
         })
       })
       if (!res.ok) throw new Error('Comparison failed')
@@ -213,6 +216,24 @@ function App() {
       setIsComparing(false)
     }
   }
+
+  const yelpToPlace = (r, index) => ({
+    id: `yelp-${index}-${r.name}`,
+    place_id: `yelp-${index}-${r.name}`,
+    name: r.name,
+    vicinity: r.address,
+    rating: r.rating,
+    location: { lat: r.latitude, lng: r.longitude },
+  });
+
+  const isYelpSource = yelpRestaurants != null && yelpRestaurants.length > 0;
+  let displayPlaces = nearbyPlaces;
+  if (recommendations.length > 0) displayPlaces = recommendations;
+  else if (yelpRestaurants != null) displayPlaces = yelpRestaurants;
+
+  const normalizedDisplayPlaces = isYelpSource 
+    ? displayPlaces.map((r, i) => yelpToPlace(r, i))
+    : displayPlaces;
 
   const handleShowRoute = (place) => {
     let lat, lng
@@ -228,10 +249,14 @@ function App() {
       setSelectedPlace(place)
       setSelectedDestination({ lat, lng })
       setRouteViewActive(true)
-      
-      const displayPlaces = recommendations.length > 0 ? recommendations : nearbyPlaces
-      fetchComparison(place, displayPlaces)
+
+      fetchComparison(place, normalizedDisplayPlaces)
     }
+  }
+
+  const handleShowRouteYelp = (restaurant, index) => {
+    const place = yelpToPlace(restaurant, index)
+    handleShowRoute(place)
   }
 
   const handleDirectCompare = (otherPlace) => {
@@ -239,10 +264,37 @@ function App() {
     fetchComparison(selectedPlace, [otherPlace])
   }
 
-  const displayPlaces = recommendations.length > 0 ? recommendations : nearbyPlaces
   const remainingPlaces = selectedPlace
-    ? displayPlaces.filter((p) => (p.place_id || p.id) !== (selectedPlace.place_id || selectedPlace.id))
-    : displayPlaces
+    ? normalizedDisplayPlaces.filter((p) => (p.place_id || p.id) !== (selectedPlace.place_id || selectedPlace.id))
+    : normalizedDisplayPlaces;
+
+  const handleSearchSubmit = async (e) => {
+    e.preventDefault()
+    const query = foodWish.trim()
+    if (!query) return
+    setYelpError(null)
+    setYelpLoading(true)
+    setYelpRestaurants(null)
+    try {
+      const res = await fetch('http://localhost:5000/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setYelpError(data.error || 'Search failed')
+        setYelpRestaurants([])
+        return
+      }
+      setYelpRestaurants(data.restaurants || [])
+    } catch (err) {
+      setYelpError(err.message || 'Could not reach the server. Is the Python backend running on port 5000?')
+      setYelpRestaurants([])
+    } finally {
+      setYelpLoading(false)
+    }
+  }
 
   return (
     <div className={`fdf-app${routeViewActive ? ' fdf-app--route-view' : ''}`}>
@@ -293,7 +345,7 @@ function App() {
                 <option value="ru-RU">Русский</option>
               </select>
             </div>
-            <div className="fdf-chatbar" aria-label="Ask the food AI">
+            <form className="fdf-chatbar" aria-label="Ask the food AI" onSubmit={handleSearchSubmit}>
               <button
                 type="button"
                 className="fdf-chatbar-icon-button"
@@ -307,10 +359,16 @@ function App() {
                 placeholder="e.g. tacos, cheap and fast, sushi..."
                 value={foodWish}
                 onChange={(e) => setFoodWish(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleGetRecommendations()
-                }}
+                disabled={yelpLoading}
               />
+              <button
+                type="submit"
+                className="fdf-chatbar-icon-button"
+                aria-label="Search restaurants"
+                disabled={yelpLoading || !foodWish.trim()}
+              >
+                <SendIcon />
+              </button>
               <button
                 type="button"
                 className={`fdf-chatbar-mic${isRecording ? ' fdf-chatbar-mic--active' : ''}`}
@@ -321,9 +379,9 @@ function App() {
                 disabled={recommendationsLoading || !foodWish.trim()}
                 aria-label={isRecording ? 'Stop and use transcript' : 'Search restaurants'}
               >
-                {isRecording ? <SendIcon /> : <MicIcon />}
+                <MicIcon />
               </button>
-            </div>
+            </form>
             <p className="fdf-ai-helper">
               This will power a real-time Q&A assistant to suggest nearby deals based on your cravings.
             </p>
@@ -341,15 +399,17 @@ function App() {
             <h3 className="fdf-deals-title">{recommendations.length > 0 ? 'Search results' : 'Restaurants near you'}</h3>
             <p className="fdf-deals-hint">Use “Use My Location” on the map to load real restaurants.</p>
             <ul className="fdf-deal-list">
-              {recommendationsLoading && (
+              {(recommendationsLoading || yelpLoading) && (
                 <li className="fdf-deal-item fdf-deal-item--empty">Searching…</li>
               )}
-              {!recommendationsLoading && displayPlaces.length === 0 && (
+              {!(recommendationsLoading || yelpLoading) && displayPlaces.length === 0 && (
                 <li className="fdf-deal-item fdf-deal-item--empty">
-                  No nearby restaurants yet. Allow location and click “Use My Location” below.
+                  {yelpRestaurants !== null
+                    ? 'No restaurants found. Try a different search.'
+                    : 'No nearby restaurants yet. Search above or allow location and click “Use My Location” below.'}
                 </li>
               )}
-              {!recommendationsLoading && displayPlaces.map((place) => {
+              {!isYelpSource && !(recommendationsLoading || yelpLoading) && displayPlaces.map((place) => {
                 const isApiResult = place.location && typeof place.location.lat === 'number'
                 const location = place.geometry?.location
                 let lat, lng
@@ -392,6 +452,22 @@ function App() {
                   </li>
                 )
               })}
+              {isYelpSource && displayPlaces.map((r, index) => (
+                <li key={`yelp-${index}-${r.name}`} className="fdf-deal-item">
+                  <div className="fdf-deal-info">
+                    <strong className="fdf-deal-name">{r.name}</strong>
+                    <span className="fdf-deal-details">{r.address}</span>
+                    <span className="fdf-deal-price">{r.rating != null ? `${r.rating}⭐` : '—'}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="fdf-btn fdf-btn-secondary"
+                    onClick={() => handleShowRouteYelp(r, index)}
+                  >
+                    Show Route
+                  </button>
+                </li>
+              ))}
             </ul>
           </section>
 
@@ -438,7 +514,7 @@ function App() {
                   )}
                 </p>
               )}
-              
+
               <div className="fdf-route-selected-comparison">
                 <div className="fdf-comparison-header">
                   <SparkleIcon />
@@ -453,44 +529,44 @@ function App() {
             </div>
           </div>
           <div className="fdf-route-view-map">
-            <MapView destination={selectedDestination} onNearbyPlaces={() => {}} fullScreen />
+            <MapView destination={selectedDestination} onNearbyPlaces={() => { }} fullScreen />
             <div className="fdf-route-view-right">
-            <div className="fdf-route-view-right-tab" aria-label="Show more restaurants">
-              <span className="fdf-route-view-arrow">‹</span>
-            </div>
-            <div className="fdf-route-view-right-list">
-              <p className="fdf-route-view-right-title">More nearby</p>
-              {remainingPlaces.map((place) => {
-                const loc = place.geometry?.location
-                const lat = typeof loc?.lat === 'function' ? loc.lat() : loc?.lat
-                const lng = typeof loc?.lng === 'function' ? loc.lng() : loc?.lng
-                const priceStr = place.price_level != null ? '$'.repeat(Math.min(4, place.price_level + 1)) : '—'
-                return (
-                  <div key={place.place_id || place.id} className="fdf-route-other-item">
-                    <strong>{place.name}</strong>
-                    <span>{place.vicinity || ''}</span>
-                    <span>{priceStr}</span>
-                    <div className="fdf-other-actions">
-                      <button
-                        type="button"
-                        className="fdf-other-btn fdf-other-btn-view"
-                        onClick={() => handleShowRoute(place)}
-                      >
-                        View
-                      </button>
-                      <button
-                        type="button"
-                        className="fdf-other-btn fdf-other-btn-compare"
-                        onClick={() => handleDirectCompare(place)}
-                      >
-                        Compare
-                      </button>
+              <div className="fdf-route-view-right-tab" aria-label="Show more restaurants">
+                <span className="fdf-route-view-arrow">‹</span>
+              </div>
+              <div className="fdf-route-view-right-list">
+                <p className="fdf-route-view-right-title">More nearby</p>
+                {remainingPlaces.map((place) => {
+                  const loc = place.geometry?.location
+                  const lat = typeof loc?.lat === 'function' ? loc.lat() : loc?.lat
+                  const lng = typeof loc?.lng === 'function' ? loc.lng() : loc?.lng
+                  const priceStr = place.price_level != null ? '$'.repeat(Math.min(4, place.price_level + 1)) : '—'
+                  return (
+                    <div key={place.place_id || place.id} className="fdf-route-other-item">
+                      <strong>{place.name}</strong>
+                      <span>{place.vicinity || ''}</span>
+                      <span>{priceStr}</span>
+                      <div className="fdf-other-actions">
+                        <button
+                          type="button"
+                          className="fdf-other-btn fdf-other-btn-view"
+                          onClick={() => handleShowRoute(place)}
+                        >
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          className="fdf-other-btn fdf-other-btn-compare"
+                          onClick={() => handleDirectCompare(place)}
+                        >
+                          Compare
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-              {remainingPlaces.length === 0 && <p className="fdf-route-view-right-empty">No others</p>}
-            </div>
+                  )
+                })}
+                {remainingPlaces.length === 0 && <p className="fdf-route-view-right-empty">No others</p>}
+              </div>
             </div>
           </div>
         </div>

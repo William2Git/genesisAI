@@ -17,7 +17,7 @@ def search_restaurants(food, location):
     params = {
         "term": food,
         "location": location,
-        "limit": 5
+        "limit": 10
     }
 
     response = requests.get(url, headers=headers, params=params)
