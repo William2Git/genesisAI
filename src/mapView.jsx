@@ -1,6 +1,6 @@
 // src/MapView.jsx
-import { useCallback, useState } from 'react';
-import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
+import { useCallback, useEffect, useState } from 'react';
+import { GoogleMap, Marker, useLoadScript, DirectionsRenderer } from '@react-google-maps/api';
 
 const containerStyle = {
   width: '100%',
@@ -11,8 +11,10 @@ const containerStyle = {
 
 const defaultCenter = { lat: 37.7749, lng: -122.4194 }; // fallback (San Francisco)
 
-function MapView() {
+function MapView({ destination }) {
   const [center, setCenter] = useState(defaultCenter);
+  const [userLocation, setUserLocation] = useState(null);
+  const [directions, setDirections] = useState(null);
 
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -23,16 +25,51 @@ function MapView() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setCenter({
+        const loc = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-        });
+        };
+        setUserLocation(loc);
+        setCenter(loc);
       },
       (err) => {
         console.error('Geolocation error:', err);
       }
     );
   }, []);
+
+  // If a destination is chosen but we don't yet have the user's location,
+  // automatically request it so "Show Route" works even if clicked first.
+  useEffect(() => {
+    if (!destination || userLocation) return;
+    requestUserLocation();
+  }, [destination, userLocation, requestUserLocation]);
+
+  // Once we have both user location and destination, fetch and render directions.
+  useEffect(() => {
+    if (!isLoaded || !userLocation || !destination) {
+      setDirections(null);
+      return;
+    }
+
+    const service = new google.maps.DirectionsService();
+
+    service.route(
+      {
+        origin: userLocation,
+        destination,
+        travelMode: google.maps.TravelMode.WALKING,
+      },
+      (result, status) => {
+        if (status === 'OK' && result) {
+          setDirections(result);
+        } else {
+          console.error('Directions request failed due to', status);
+          setDirections(null);
+        }
+      }
+    );
+  }, [isLoaded, userLocation, destination]);
 
   if (loadError) return <div>Failed to load map.</div>;
   if (!isLoaded) return <div>Loading map…</div>;
@@ -56,7 +93,9 @@ function MapView() {
           clickableIcons: true,
         }}
       >
-        <Marker position={center} />
+        {userLocation && <Marker position={userLocation} label="You" />}
+        {destination && <Marker position={destination} label="Food" />}
+        {directions && <DirectionsRenderer directions={directions} />}
       </GoogleMap>
     </div>
   );

@@ -45,12 +45,29 @@ function SparkleIcon() {
 }
 
 const deals = [
-  { name: 'Bento Bloom', details: 'Japanese · $ · 4 min walk', badge: 'Late-night' },
-  { name: 'College Slice House', details: 'Pizza · $ · 6 min walk', badge: 'Combo' },
-  { name: 'Maple Curry Kitchen', details: 'Indian · $$ · 8 min walk', badge: 'Bonus item' },
+  {
+    name: 'Bento Bloom',
+    details: 'Japanese · $ · 4 min walk',
+    badge: 'Late-night',
+    location: { lat: 37.7755, lng: -122.4185 },
+  },
+  {
+    name: 'College Slice House',
+    details: 'Pizza · $ · 6 min walk',
+    badge: 'Combo',
+    location: { lat: 37.7738, lng: -122.4212 },
+  },
+  {
+    name: 'Maple Curry Kitchen',
+    details: 'Indian · $$ · 8 min walk',
+    badge: 'Bonus item',
+    location: { lat: 37.7763, lng: -122.423 },
+  },
 ]
 
 function App() {
+  const [selectedDestination, setSelectedDestination] = useState(null)
+
   return (
     <div className="fdf-app">
       <header className="fdf-header">
@@ -84,7 +101,7 @@ function App() {
               <button type="button" className="fdf-btn fdf-btn-secondary">Demo Mode</button>
             </div>
             <div style={{ marginTop: '1.5rem' }}>
-              <MapView />
+              <MapView destination={selectedDestination} />
             </div>
             <div className="fdf-features">
               <span className="fdf-feature">
@@ -110,7 +127,16 @@ function App() {
                     <strong className="fdf-deal-name">{deal.name}</strong>
                     <span className="fdf-deal-details">{deal.details}</span>
                   </div>
-                  <span className="fdf-deal-badge">{deal.badge}</span>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span className="fdf-deal-badge">{deal.badge}</span>
+                    <button
+                      type="button"
+                      className="fdf-btn fdf-btn-secondary"
+                      onClick={() => setSelectedDestination(deal.location)}
+                    >
+                      Show Route
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
