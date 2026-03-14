@@ -1,0 +1,245 @@
+/* Food Discount Finder - match reference layout and content */
+
+.fdf-app {
+  min-height: 100vh;
+  background: #e8eef4;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Header */
+.fdf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.fdf-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fdf-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fdf-logo svg {
+  width: 22px;
+  height: 22px;
+}
+
+.fdf-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.fdf-tagline {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 2px 0 0;
+}
+
+.fdf-nav {
+  display: flex;
+  gap: 10px;
+}
+
+.fdf-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s;
+}
+
+.fdf-btn:hover {
+  opacity: 0.9;
+}
+
+.fdf-btn-primary {
+  background: #1e293b;
+  color: #fff;
+}
+
+.fdf-btn-secondary {
+  background: #fff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Main content */
+.fdf-main {
+  padding: 32px 24px 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.fdf-card {
+  background: #dce4ed;
+  border-radius: 20px;
+  padding: 40px 36px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 48px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .fdf-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Hero (left) */
+.fdf-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fdf-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.fdf-headline {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.fdf-desc {
+  font-size: 0.95rem;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 520px;
+}
+
+.fdf-cta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fdf-cta .fdf-btn {
+  padding: 10px 20px;
+}
+
+.fdf-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fdf-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.fdf-feature {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.fdf-feature svg {
+  flex-shrink: 0;
+  color: #475569;
+}
+
+/* Deals (right) */
+.fdf-deals {
+  background: transparent;
+}
+
+.fdf-deals-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 16px;
+}
+
+.fdf-deals-title svg {
+  color: #64748b;
+}
+
+.fdf-deal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fdf-deal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.fdf-deal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fdf-deal-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.fdf-deal-details {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.fdf-deal-badge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
