@@ -74,7 +74,7 @@ function App() {
             <span className="fdf-badge">Student budget finder</span>
             <h2 className="fdf-headline">Find food deals near you in seconds.</h2>
             <p className="fdf-desc">
-              A responsive website that helps users quickly compare nearby food options by deal, price, distance, and rating — perfect for a 2-day demo build.
+              A responsive website that helps users quickly compare nearby food options by deal, price, distance, and ratings.
             </p>
             <div className="fdf-cta">
               <button type="button" className="fdf-btn fdf-btn-primary fdf-cta-primary">
