@@ -4,9 +4,9 @@ function ForkKnifeIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       {/* Fork (left) */}
-      <path d="M5 2v7.5l2 2V2H5zm2 0v9.5l2-2V2H7zm2 0v7.5h1V2h-1z"/>
+      <path d="M5 2v7.5l2 2V2H5zm2 0v9.5l2-2V2H7zm2 0v7.5h1V2h-1z" />
       {/* Knife (right, crossing) */}
-      <path d="M19 2v20h-1V11l-4 4V2h5z"/>
+      <path d="M19 2v20h-1V11l-4 4V2h5z" />
     </svg>
   )
 }
@@ -14,7 +14,7 @@ function ForkKnifeIcon() {
 function CheckIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M13.5 4L6 11.5 2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M13.5 4L6 11.5 2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -22,7 +22,7 @@ function CheckIcon() {
 function PinIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M8 1C5.24 1 3 3.24 3 6c0 3.5 5 9 5 9s5-5.5 5-9c0-2.76-2.24-5-5-5zm0 6.75a1.75 1.75 0 110-3.5 1.75 1.75 0 010 3.5z" fill="currentColor"/>
+      <path d="M8 1C5.24 1 3 3.24 3 6c0 3.5 5 9 5 9s5-5.5 5-9c0-2.76-2.24-5-5-5zm0 6.75a1.75 1.75 0 110-3.5 1.75 1.75 0 010 3.5z" fill="currentColor" />
     </svg>
   )
 }
@@ -30,7 +30,7 @@ function PinIcon() {
 function TagIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M2 2h5.5l7 7-6 6L2 8.5V2zm2 2v3.5l5 5 4-4-5-5H4z" fill="currentColor"/>
+      <path d="M2 2h5.5l7 7-6 6L2 8.5V2zm2 2v3.5l5 5 4-4-5-5H4z" fill="currentColor" />
     </svg>
   )
 }
@@ -38,7 +38,7 @@ function TagIcon() {
 function SparkleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M9 1l1.5 4.5L15 7l-4.5 1.5L9 13l-1.5-4.5L3 7l4.5-1.5L9 1z" fill="currentColor"/>
+      <path d="M9 1l1.5 4.5L15 7l-4.5 1.5L9 13l-1.5-4.5L3 7l4.5-1.5L9 1z" fill="currentColor" />
     </svg>
   )
 }
