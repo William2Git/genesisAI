@@ -63,27 +63,6 @@ function MicIcon() {
   )
 }
 
-const deals = [
-  {
-    name: 'Bento Bloom',
-    details: 'Japanese · $ · 4 min walk',
-    badge: 'Late-night',
-    location: { lat: 37.7755, lng: -122.4185 },
-  },
-  {
-    name: 'College Slice House',
-    details: 'Pizza · $ · 6 min walk',
-    badge: 'Combo',
-    location: { lat: 37.7738, lng: -122.4212 },
-  },
-  {
-    name: 'Maple Curry Kitchen',
-    details: 'Indian · $$ · 8 min walk',
-    badge: 'Bonus item',
-    location: { lat: 37.7763, lng: -122.423 },
-  },
-]
-
 function SendIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -97,6 +76,9 @@ function SendIcon() {
 
 function App() {
   const [selectedDestination, setSelectedDestination] = useState(null)
+  const [selectedPlace, setSelectedPlace] = useState(null)
+  const [routeViewActive, setRouteViewActive] = useState(false)
+  const [nearbyPlaces, setNearbyPlaces] = useState([])
   const [foodWish, setFoodWish] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [speechLang, setSpeechLang] = useState('en-US')
@@ -158,8 +140,29 @@ function App() {
     recognition.start()
   }
 
+  const exitRouteView = () => {
+    setRouteViewActive(false)
+    setSelectedPlace(null)
+    setSelectedDestination(null)
+  }
+
+  const handleShowRoute = (place) => {
+    const location = place.geometry?.location
+    const lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
+    const lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
+    if (lat != null && lng != null) {
+      setSelectedPlace(place)
+      setSelectedDestination({ lat, lng })
+      setRouteViewActive(true)
+    }
+  }
+
+  const remainingPlaces = selectedPlace
+    ? nearbyPlaces.filter((p) => p.place_id !== selectedPlace.place_id)
+    : nearbyPlaces
+
   return (
-    <div className="fdf-app">
+    <div className={`fdf-app${routeViewActive ? ' fdf-app--route-view' : ''}`}>
       <header className="fdf-header">
         <div className="fdf-brand">
           <div className="fdf-logo">
@@ -172,15 +175,14 @@ function App() {
         </div>
         <nav className="fdf-nav">
           <button type="button" className="fdf-btn fdf-btn-primary">Home</button>
-          <button type="button" className="fdf-btn fdf-btn-secondary">App</button>
         </nav>
       </header>
 
-      <main className="fdf-main">
+      <main className="fdf-main fdf-main--compact">
         <div className="fdf-card">
-          <div className="fdf-hero">
+          <div className="fdf-hero fdf-hero--centered">
             <span className="fdf-badge">Student budget finder</span>
-            <h2 className="fdf-headline">Find food deals near you in seconds.</h2>
+            <h2 className="fdf-headline">Find food near you in seconds.</h2>
             <p className="fdf-desc">
               A responsive website that helps users quickly compare nearby food options by deal, price, distance, and ratings.
             </p>
@@ -188,35 +190,8 @@ function App() {
               <button type="button" className="fdf-btn fdf-btn-primary fdf-cta-primary">
                 Find Deals Near Me →
               </button>
-              <button type="button" className="fdf-btn fdf-btn-secondary">Demo Mode</button>
             </div>
           </div>
-
-          <aside className="fdf-deals">
-            <h3 className="fdf-deals-title">
-              <SparkleIcon /> Best value nearby
-            </h3>
-            <ul className="fdf-deal-list">
-              {deals.map((deal) => (
-                <li key={deal.name} className="fdf-deal-item">
-                  <div className="fdf-deal-info">
-                    <strong className="fdf-deal-name">{deal.name}</strong>
-                    <span className="fdf-deal-details">{deal.details}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span className="fdf-deal-badge">{deal.badge}</span>
-                    <button
-                      type="button"
-                      className="fdf-btn fdf-btn-secondary"
-                      onClick={() => setSelectedDestination(deal.location)}
-                    >
-                      Show Route
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </aside>
 
           <div className="fdf-ai-input">
             <div className="fdf-ai-header-row">
@@ -264,15 +239,57 @@ function App() {
             </p>
           </div>
 
-          <div
-            style={{
-              marginTop: '1rem',
-              width: '100%',
-              gridColumn: '1 / -1',
-            }}
-          >
-            <MapView destination={selectedDestination} />
+          <div className="fdf-map-wrap">
+            <MapView destination={selectedDestination} onNearbyPlaces={setNearbyPlaces} />
           </div>
+
+          <section className="fdf-deals">
+            <h3 className="fdf-deals-title">Restaurants near you.</h3>
+            <p className="fdf-deals-hint">Use “Use My Location” on the map to load real restaurants.</p>
+            <ul className="fdf-deal-list">
+              {nearbyPlaces.length === 0 && (
+                <li className="fdf-deal-item fdf-deal-item--empty">
+                  No nearby restaurants yet. Allow location and click “Use My Location” below.
+                </li>
+              )}
+              {nearbyPlaces.map((place) => {
+                const location = place.geometry?.location
+                const lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
+                const lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
+                const priceLevel = place.price_level != null ? place.price_level : -1
+                const priceStr = priceLevel >= 0 ? '$'.repeat(Math.min(4, priceLevel + 1)) : '—'
+                const hours = place.opening_hours
+                const openNow = hours?.open_now
+                const weekdayText = hours?.weekday_text || []
+                const dayIndex = (new Date().getDay() + 6) % 7
+                const todayHours = weekdayText[dayIndex] ? weekdayText[dayIndex].replace(/^\w+\s*:\s*/, '') : null
+                const hoursLabel = openNow !== undefined ? (openNow ? 'Open now' : 'Closed') : '—'
+                return (
+                  <li key={place.place_id} className="fdf-deal-item">
+                    {place.photoUrl && (
+                      <div className="fdf-deal-photo-wrap">
+                        <img src={place.photoUrl} alt="" className="fdf-deal-photo" />
+                      </div>
+                    )}
+                    <div className="fdf-deal-info">
+                      <strong className="fdf-deal-name">{place.name}</strong>
+                      <span className="fdf-deal-details">{place.vicinity || 'Address not available'}</span>
+                      <span className="fdf-deal-price">{priceStr}</span>
+                      <span className="fdf-deal-hours">{hoursLabel}{todayHours ? ` · ${todayHours}` : ''}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="fdf-btn fdf-btn-secondary"
+                      disabled={lat == null || lng == null}
+                      onClick={() => handleShowRoute(place)}
+                    >
+                      Show Route
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
 
           <div className="fdf-features">
             <span className="fdf-feature">
@@ -287,6 +304,70 @@ function App() {
           </div>
         </div>
       </main>
+
+      {routeViewActive && selectedPlace && (
+        <div className="fdf-route-view" role="dialog" aria-label="Route view">
+          <div className="fdf-route-view-left">
+            <button
+              type="button"
+              className="fdf-btn fdf-btn-secondary fdf-route-back"
+              onClick={exitRouteView}
+            >
+              ← Back
+            </button>
+            <div className="fdf-route-selected-card">
+              {selectedPlace.photoUrl && (
+                <img src={selectedPlace.photoUrl} alt="" className="fdf-route-selected-photo" />
+              )}
+              <h3 className="fdf-route-selected-name">{selectedPlace.name}</h3>
+              <p className="fdf-route-selected-address">{selectedPlace.vicinity || 'Address not available'}</p>
+              <p className="fdf-route-selected-price">
+                {selectedPlace.price_level != null
+                  ? '$'.repeat(Math.min(4, selectedPlace.price_level + 1))
+                  : '—'}
+              </p>
+              {selectedPlace.opening_hours && (
+                <p className="fdf-route-selected-hours">
+                  {selectedPlace.opening_hours.open_now ? 'Open now' : 'Closed'}
+                  {selectedPlace.opening_hours.weekday_text && selectedPlace.opening_hours.weekday_text[(new Date().getDay() + 6) % 7] && (
+                    <> · {selectedPlace.opening_hours.weekday_text[(new Date().getDay() + 6) % 7].replace(/^\w+\s*:\s*/, '')}</>
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="fdf-route-view-map">
+            <MapView destination={selectedDestination} onNearbyPlaces={() => {}} fullScreen />
+            <div className="fdf-route-view-right">
+            <div className="fdf-route-view-right-tab" aria-label="Show more restaurants">
+              <span className="fdf-route-view-arrow">‹</span>
+            </div>
+            <div className="fdf-route-view-right-list">
+              <p className="fdf-route-view-right-title">More nearby</p>
+              {remainingPlaces.map((place) => {
+                const loc = place.geometry?.location
+                const lat = typeof loc?.lat === 'function' ? loc.lat() : loc?.lat
+                const lng = typeof loc?.lng === 'function' ? loc.lng() : loc?.lng
+                const priceStr = place.price_level != null ? '$'.repeat(Math.min(4, place.price_level + 1)) : '—'
+                return (
+                  <button
+                    key={place.place_id}
+                    type="button"
+                    className="fdf-route-other-item"
+                    onClick={() => handleShowRoute(place)}
+                  >
+                    <strong>{place.name}</strong>
+                    <span>{place.vicinity || ''}</span>
+                    <span>{priceStr}</span>
+                  </button>
+                )
+              })}
+              {remainingPlaces.length === 0 && <p className="fdf-route-view-right-empty">No others</p>}
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
