@@ -1,4 +1,5 @@
 import './App.css'
+import MapView from './mapView'
 import { useState } from 'react'
 function ForkKnifeIcon() {
   return (
@@ -81,6 +82,9 @@ function App() {
                 Find Deals Near Me →
               </button>
               <button type="button" className="fdf-btn fdf-btn-secondary">Demo Mode</button>
+            </div>
+            <div style={{ marginTop: '1.5rem' }}>
+              <MapView />
             </div>
             <div className="fdf-features">
               <span className="fdf-feature">
