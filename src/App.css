@@ -178,6 +178,110 @@
   color: #475569;
 }
 
+.fdf-ai-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fdf-ai-lang-select {
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* AI input / chat bar */
+.fdf-ai-input {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fdf-ai-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #0f172a;
+  margin: 0;
+}
+
+.fdf-ai-helper {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.fdf-chatbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.fdf-chatbar-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  color: #0f172a;
+  outline: none;
+}
+
+.fdf-chatbar-input::placeholder {
+  color: #9ca3af;
+}
+
+.fdf-chatbar-icon-button {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 1.1rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.fdf-chatbar-mic {
+  border: none;
+  background: #0f172a;
+  color: #e5e7eb;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.4);
+}
+
+.fdf-chatbar-mic svg {
+  width: 16px;
+  height: 16px;
+}
+
+.fdf-chatbar-mic:hover {
+  transform: translateY(-1px);
+}
+
+.fdf-chatbar-mic--active {
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+}
+
 /* Deals (right) */
 .fdf-deals {
   background: transparent;
