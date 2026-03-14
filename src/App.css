@@ -651,29 +651,118 @@
   align-items: flex-start;
   gap: 2px;
   width: 100%;
-  padding: 10px 8px;
-  margin-bottom: 6px;
-  border: none;
-  border-radius: 8px;
+  padding: 12px 10px;
+  margin-bottom: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   background: #f8fafc;
-  cursor: pointer;
   text-align: left;
   font-size: 0.8rem;
   color: #475569;
-  transition: background 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .fdf-route-other-item strong {
   color: #0f172a;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  margin-bottom: 2px;
 }
 
 .fdf-route-other-item:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+}
+
+.fdf-other-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.fdf-other-btn {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.fdf-other-btn-view {
   background: #e2e8f0;
+  color: #1e293b;
+}
+
+.fdf-other-btn-view:hover {
+  background: #cbd5e1;
+}
+
+.fdf-other-btn-compare {
+  background: #8b5cf6;
+  color: #fff;
+  border-color: #7c3aed;
+}
+
+.fdf-other-btn-compare:hover {
+  background: #7c3aed;
 }
 
 .fdf-route-view-right-empty {
   font-size: 0.85rem;
   color: #64748b;
   margin: 0;
+}
+
+/* AI Comparison Insight */
+.fdf-route-selected-comparison {
+  margin-top: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.fdf-comparison-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #1e293b;
+}
+
+.fdf-comparison-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.fdf-comparison-header svg {
+  color: #8b5cf6; /* A pop of purple for AI magic */
+}
+
+.fdf-comparison-text {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #334155;
+  margin: 0;
+}
+
+.fdf-comparison-loading {
+  color: #64748b;
+  font-style: italic;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
 }

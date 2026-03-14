@@ -79,12 +79,46 @@ function App() {
   const [selectedPlace, setSelectedPlace] = useState(null)
   const [routeViewActive, setRouteViewActive] = useState(false)
   const [nearbyPlaces, setNearbyPlaces] = useState([])
+  const [recommendations, setRecommendations] = useState([])
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false)
+  const [userLocation, setUserLocation] = useState(null)
   const [foodWish, setFoodWish] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [speechLang, setSpeechLang] = useState('en-US')
+  const [comparisonResult, setComparisonResult] = useState(null)
+  const [isComparing, setIsComparing] = useState(false)
 
   const recognitionRef = useRef(null)
   const transcriptRef = useRef('')
+
+  const apiUrl = import.meta.env.VITE_RECOMMENDATIONS_API_URL
+
+  const handleGetRecommendations = async () => {
+    const query = foodWish.trim()
+    if (!query) return
+    if (!apiUrl) {
+      console.warn('VITE_RECOMMENDATIONS_API_URL is not set. Add it to .env to use Yelp recommendations.')
+      return
+    }
+    setRecommendationsLoading(true)
+    setRecommendations([])
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: query, userLocation: userLocation || undefined }),
+      })
+      if (!res.ok) throw new Error('Recommendations request failed')
+      const data = await res.json()
+      const results = data.results ?? data.recommendations ?? []
+      setRecommendations(Array.isArray(results) ? results : [])
+    } catch (err) {
+      console.error(err)
+      setRecommendations([])
+    } finally {
+      setRecommendationsLoading(false)
+    }
+  }
 
   const handleVoiceInput = () => {
     if (typeof window === 'undefined') return
@@ -144,22 +178,71 @@ function App() {
     setRouteViewActive(false)
     setSelectedPlace(null)
     setSelectedDestination(null)
+    setComparisonResult(null)
+    setIsComparing(false)
+  }
+
+  const fetchComparison = async (selected, allPlaces) => {
+    // If we have an API URL, strip the end to get the base. Otherwise assume localhost:4000
+    const baseUrl = apiUrl ? apiUrl.replace('/api/recommendations', '') : 'http://localhost:4000'
+    const compareUrl = `${baseUrl}/api/compare`
+
+    // Filter out the selected place and pick up to 3 others
+    const others = allPlaces.filter(p => (p.place_id || p.id) !== (selected.place_id || selected.id)).slice(0, 3)
+    if (others.length === 0) return
+
+    setIsComparing(true)
+    setComparisonResult(null)
+
+    try {
+      const res = await fetch(compareUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          restaurant: { name: selected.name, details: selected.details || selected.vicinity, price_level: selected.price_level, rating: selected.rating }, 
+          otherRestaurants: others.map(o => ({ name: o.name, details: o.details || o.vicinity, price_level: o.price_level, rating: o.rating })) 
+        })
+      })
+      if (!res.ok) throw new Error('Comparison failed')
+      const data = await res.json()
+      if (data.comparison) setComparisonResult(data.comparison)
+    } catch (err) {
+      console.error(err)
+      setComparisonResult('Failed to load comparison.')
+    } finally {
+      setIsComparing(false)
+    }
   }
 
   const handleShowRoute = (place) => {
-    const location = place.geometry?.location
-    const lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
-    const lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
+    let lat, lng
+    if (place.location && typeof place.location.lat === 'number' && typeof place.location.lng === 'number') {
+      lat = place.location.lat
+      lng = place.location.lng
+    } else {
+      const location = place.geometry?.location
+      lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
+      lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
+    }
     if (lat != null && lng != null) {
       setSelectedPlace(place)
       setSelectedDestination({ lat, lng })
       setRouteViewActive(true)
+      
+      const displayPlaces = recommendations.length > 0 ? recommendations : nearbyPlaces
+      fetchComparison(place, displayPlaces)
     }
   }
 
+  const handleDirectCompare = (otherPlace) => {
+    if (!selectedPlace) return
+    fetchComparison(selectedPlace, [otherPlace])
+  }
+
+  const displayPlaces = recommendations.length > 0 ? recommendations : nearbyPlaces
   const remainingPlaces = selectedPlace
-    ? nearbyPlaces.filter((p) => p.place_id !== selectedPlace.place_id)
-    : nearbyPlaces
+    ? displayPlaces.filter((p) => (p.place_id || p.id) !== (selectedPlace.place_id || selectedPlace.id))
+    : displayPlaces
 
   return (
     <div className={`fdf-app${routeViewActive ? ' fdf-app--route-view' : ''}`}>
@@ -221,15 +304,22 @@ function App() {
               <input
                 id="food-wish"
                 className="fdf-chatbar-input"
-                placeholder="Ask anything about nearby food deals..."
+                placeholder="e.g. tacos, cheap and fast, sushi..."
                 value={foodWish}
                 onChange={(e) => setFoodWish(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleGetRecommendations()
+                }}
               />
               <button
                 type="button"
                 className={`fdf-chatbar-mic${isRecording ? ' fdf-chatbar-mic--active' : ''}`}
-                onClick={handleVoiceInput}
-                aria-label={isRecording ? 'Stop and use transcript' : 'Start voice input'}
+                onClick={() => {
+                  if (isRecording) handleVoiceInput()
+                  else handleGetRecommendations()
+                }}
+                disabled={recommendationsLoading || !foodWish.trim()}
+                aria-label={isRecording ? 'Stop and use transcript' : 'Search restaurants'}
               >
                 {isRecording ? <SendIcon /> : <MicIcon />}
               </button>
@@ -240,24 +330,38 @@ function App() {
           </div>
 
           <div className="fdf-map-wrap">
-            <MapView destination={selectedDestination} onNearbyPlaces={setNearbyPlaces} />
+            <MapView
+              destination={selectedDestination}
+              onNearbyPlaces={setNearbyPlaces}
+              onUserLocationChange={setUserLocation}
+            />
           </div>
 
           <section className="fdf-deals">
-            <h3 className="fdf-deals-title">Restaurants near you.</h3>
+            <h3 className="fdf-deals-title">{recommendations.length > 0 ? 'Search results' : 'Restaurants near you'}</h3>
             <p className="fdf-deals-hint">Use “Use My Location” on the map to load real restaurants.</p>
             <ul className="fdf-deal-list">
-              {nearbyPlaces.length === 0 && (
+              {recommendationsLoading && (
+                <li className="fdf-deal-item fdf-deal-item--empty">Searching…</li>
+              )}
+              {!recommendationsLoading && displayPlaces.length === 0 && (
                 <li className="fdf-deal-item fdf-deal-item--empty">
                   No nearby restaurants yet. Allow location and click “Use My Location” below.
                 </li>
               )}
-              {nearbyPlaces.map((place) => {
+              {!recommendationsLoading && displayPlaces.map((place) => {
+                const isApiResult = place.location && typeof place.location.lat === 'number'
                 const location = place.geometry?.location
-                const lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
-                const lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
+                let lat, lng
+                if (isApiResult) {
+                  lat = place.location.lat
+                  lng = place.location.lng
+                } else {
+                  lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
+                  lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
+                }
                 const priceLevel = place.price_level != null ? place.price_level : -1
-                const priceStr = priceLevel >= 0 ? '$'.repeat(Math.min(4, priceLevel + 1)) : '—'
+                const priceStr = priceLevel >= 0 ? '$'.repeat(Math.min(4, priceLevel + 1)) : (place.badge || '—')
                 const hours = place.opening_hours
                 const openNow = hours?.open_now
                 const weekdayText = hours?.weekday_text || []
@@ -265,7 +369,7 @@ function App() {
                 const todayHours = weekdayText[dayIndex] ? weekdayText[dayIndex].replace(/^\w+\s*:\s*/, '') : null
                 const hoursLabel = openNow !== undefined ? (openNow ? 'Open now' : 'Closed') : '—'
                 return (
-                  <li key={place.place_id} className="fdf-deal-item">
+                  <li key={place.place_id || place.id} className="fdf-deal-item">
                     {place.photoUrl && (
                       <div className="fdf-deal-photo-wrap">
                         <img src={place.photoUrl} alt="" className="fdf-deal-photo" />
@@ -273,7 +377,7 @@ function App() {
                     )}
                     <div className="fdf-deal-info">
                       <strong className="fdf-deal-name">{place.name}</strong>
-                      <span className="fdf-deal-details">{place.vicinity || 'Address not available'}</span>
+                      <span className="fdf-deal-details">{place.vicinity || place.details || 'Address not available'}</span>
                       <span className="fdf-deal-price">{priceStr}</span>
                       <span className="fdf-deal-hours">{hoursLabel}{todayHours ? ` · ${todayHours}` : ''}</span>
                     </div>
@@ -334,6 +438,18 @@ function App() {
                   )}
                 </p>
               )}
+              
+              <div className="fdf-route-selected-comparison">
+                <div className="fdf-comparison-header">
+                  <SparkleIcon />
+                  <h4>AI Insight</h4>
+                </div>
+                {isComparing ? (
+                  <p className="fdf-comparison-text fdf-comparison-loading">Analyzing how this compares to nearby options...</p>
+                ) : comparisonResult ? (
+                  <p className="fdf-comparison-text">{comparisonResult}</p>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="fdf-route-view-map">
@@ -350,16 +466,27 @@ function App() {
                 const lng = typeof loc?.lng === 'function' ? loc.lng() : loc?.lng
                 const priceStr = place.price_level != null ? '$'.repeat(Math.min(4, place.price_level + 1)) : '—'
                 return (
-                  <button
-                    key={place.place_id}
-                    type="button"
-                    className="fdf-route-other-item"
-                    onClick={() => handleShowRoute(place)}
-                  >
+                  <div key={place.place_id || place.id} className="fdf-route-other-item">
                     <strong>{place.name}</strong>
                     <span>{place.vicinity || ''}</span>
                     <span>{priceStr}</span>
-                  </button>
+                    <div className="fdf-other-actions">
+                      <button
+                        type="button"
+                        className="fdf-other-btn fdf-other-btn-view"
+                        onClick={() => handleShowRoute(place)}
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        className="fdf-other-btn fdf-other-btn-compare"
+                        onClick={() => handleDirectCompare(place)}
+                      >
+                        Compare
+                      </button>
+                    </div>
+                  </div>
                 )
               })}
               {remainingPlaces.length === 0 && <p className="fdf-route-view-right-empty">No others</p>}

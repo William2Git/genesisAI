@@ -18,7 +18,7 @@ const fullScreenContainerStyle = {
 
 const defaultCenter = { lat: 37.7749, lng: -122.4194 }; // fallback (San Francisco)
 
-function MapView({ destination, onNearbyPlaces, fullScreen }) {
+function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen }) {
   const [center, setCenter] = useState(defaultCenter);
   const [userLocation, setUserLocation] = useState(null);
   const [directions, setDirections] = useState(null);
@@ -40,12 +40,13 @@ function MapView({ destination, onNearbyPlaces, fullScreen }) {
         };
         setUserLocation(loc);
         setCenter(loc);
+        onUserLocationChange?.(loc);
       },
       (err) => {
         console.error('Geolocation error:', err);
       }
     );
-  }, []);
+  }, [onUserLocationChange]);
 
   // If a destination is chosen but we don't yet have the user's location,
   // automatically request it so "Show Route" works even if clicked first.
