@@ -1,6 +1,6 @@
 import './App.css'
 import MapView from './mapView'
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 function ForkKnifeIcon() {
   return (
@@ -74,6 +74,36 @@ function SendIcon() {
   )
 }
 
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+const PRICE_RANGE_LABELS = {
+  0: 'Budget (under $10)',
+  1: 'Moderate ($10–25)',
+  2: 'Upscale ($25–50)',
+  3: 'Premium ($50–100)',
+  4: 'Fine dining ($100+)',
+}
+
+function getPriceRangeLabel(priceLevel) {
+  if (priceLevel == null || priceLevel < 0) return '—'
+  return PRICE_RANGE_LABELS[Math.min(4, priceLevel)] ?? '—'
+}
+
+function isPlaceOpenNow(place) {
+  const hours = place?.opening_hours
+  if (!hours || hours.open_now === undefined) return null
+  return hours.open_now === true
+}
+
 function App() {
   const [selectedDestination, setSelectedDestination] = useState(null)
   const [selectedPlace, setSelectedPlace] = useState(null)
@@ -89,12 +119,48 @@ function App() {
   const [yelpLoading, setYelpLoading] = useState(false)
   const [yelpError, setYelpError] = useState(null)
   const [comparisonResult, setComparisonResult] = useState(null)
+  const [comparedPlaces, setComparedPlaces] = useState([])
   const [isComparing, setIsComparing] = useState(false)
 
   const recognitionRef = useRef(null)
-  const transcriptRef = useRef('')
+  const transcriptRef = useRef(null)
+  const mapViewRef = useRef(null)
+
+  const requestUserLocation = useCallback(() => {
+    setYelpRestaurants(null)
+    setYelpError(null)
+    mapViewRef.current?.requestUserLocation?.()
+  }, [])
 
   const apiUrl = import.meta.env.VITE_RECOMMENDATIONS_API_URL
+  const searchApiUrl = import.meta.env.VITE_SEARCH_API_URL || 'http://localhost:5000'
+
+  const submitQueryToAI = async (query) => {
+    const q = (typeof query === 'string' ? query : foodWish).trim()
+    if (!q) return
+    setYelpError(null)
+    setYelpLoading(true)
+    setYelpRestaurants(null)
+    try {
+      const res = await fetch(`${searchApiUrl}/api/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setYelpError(data.error || 'Search failed')
+        setYelpRestaurants([])
+        return
+      }
+      setYelpRestaurants(data.restaurants || [])
+    } catch (err) {
+      setYelpError(err.message || 'Could not reach the server. Is the Python backend running?')
+      setYelpRestaurants([])
+    } finally {
+      setYelpLoading(false)
+    }
+  }
 
   const handleGetRecommendations = async () => {
     const query = foodWish.trim()
@@ -159,6 +225,7 @@ function App() {
       const transcript = transcriptRef.current.trim()
       if (transcript) {
         setFoodWish((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        submitQueryToAI(transcript)
       }
       transcriptRef.current = ''
     }
@@ -182,6 +249,7 @@ function App() {
     setSelectedPlace(null)
     setSelectedDestination(null)
     setComparisonResult(null)
+    setComparedPlaces([])
     setIsComparing(false)
   }
 
@@ -192,6 +260,7 @@ function App() {
 
     if (others.length === 0) return;
 
+    setComparedPlaces(others);
     setIsComparing(true);
     setComparisonResult(null);
 
@@ -236,6 +305,8 @@ function App() {
     vicinity: r.address,
     rating: r.rating,
     location: { lat: r.latitude, lng: r.longitude },
+    open_now: r.open_now,
+    is_closed: r.is_closed,
   });
 
   const isYelpSource = yelpRestaurants != null && yelpRestaurants.length > 0;
@@ -243,9 +314,36 @@ function App() {
   if (recommendations.length > 0) displayPlaces = recommendations;
   else if (yelpRestaurants != null) displayPlaces = yelpRestaurants;
 
-  const normalizedDisplayPlaces = isYelpSource
+  let normalizedDisplayPlaces = isYelpSource
     ? displayPlaces.map((r, i) => yelpToPlace(r, i))
     : displayPlaces;
+
+  if (isYelpSource && Array.isArray(yelpRestaurants)) {
+    normalizedDisplayPlaces = normalizedDisplayPlaces.filter((p) => {
+      if (p.open_now === false || p.is_closed === true) return false
+      return true
+    })
+  }
+
+  if (!isYelpSource && Array.isArray(normalizedDisplayPlaces) && normalizedDisplayPlaces.length > 0) {
+    const withMeta = normalizedDisplayPlaces.map((p) => {
+      const loc = p.geometry?.location
+      const lat = typeof loc?.lat === 'function' ? loc.lat() : loc?.lat
+      const lng = typeof loc?.lng === 'function' ? loc.lng() : loc?.lng
+      const dist = userLocation && lat != null && lng != null
+        ? haversineKm(userLocation.lat, userLocation.lng, lat, lng)
+        : Infinity
+      const open = isPlaceOpenNow(p)
+      return { place: p, distanceKm: dist, isOpen: open }
+    })
+    withMeta.sort((a, b) => {
+      const aOpen = a.isOpen === true ? 0 : a.isOpen === false ? 1 : 0
+      const bOpen = b.isOpen === true ? 0 : b.isOpen === false ? 1 : 0
+      if (aOpen !== bOpen) return aOpen - bOpen
+      return a.distanceKm - b.distanceKm
+    })
+    normalizedDisplayPlaces = withMeta.map((m) => m.place)
+  }
 
   const handleShowRoute = (place) => {
     let lat, lng
@@ -286,28 +384,7 @@ function App() {
     e.preventDefault()
     const query = foodWish.trim()
     if (!query) return
-    setYelpError(null)
-    setYelpLoading(true)
-    setYelpRestaurants(null)
-    try {
-      const res = await fetch('http://localhost:5000/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setYelpError(data.error || 'Search failed')
-        setYelpRestaurants([])
-        return
-      }
-      setYelpRestaurants(data.restaurants || [])
-    } catch (err) {
-      setYelpError(err.message || 'Could not reach the server. Is the Python backend running on port 5000?')
-      setYelpRestaurants([])
-    } finally {
-      setYelpLoading(false)
-    }
+    await submitQueryToAI(query)
   }
 
   return (
@@ -336,7 +413,11 @@ function App() {
               A responsive website that helps users quickly compare nearby food options by deal, price, distance, and ratings.
             </p>
             <div className="fdf-cta">
-              <button type="button" className="fdf-btn fdf-btn-primary fdf-cta-primary">
+              <button
+                type="button"
+                className="fdf-btn fdf-btn-primary fdf-cta-primary"
+                onClick={requestUserLocation}
+              >
                 Find Deals Near Me →
               </button>
             </div>
@@ -360,13 +441,6 @@ function App() {
               </select>
             </div>
             <form className="fdf-chatbar" aria-label="Ask the food AI" onSubmit={handleSearchSubmit}>
-              <button
-                type="button"
-                className="fdf-chatbar-icon-button"
-                aria-label="Add more preferences"
-              >
-                +
-              </button>
               <input
                 id="food-wish"
                 className="fdf-chatbar-input"
@@ -388,10 +462,10 @@ function App() {
                 className={`fdf-chatbar-mic${isRecording ? ' fdf-chatbar-mic--active' : ''}`}
                 onClick={() => {
                   if (isRecording) handleVoiceInput()
-                  else handleGetRecommendations()
+                  else handleVoiceInput()
                 }}
-                disabled={recommendationsLoading || !foodWish.trim()}
-                aria-label={isRecording ? 'Stop and use transcript' : 'Search restaurants'}
+                disabled={recommendationsLoading}
+                aria-label={isRecording ? 'Stop and send to AI' : 'Start voice input'}
               >
                 <MicIcon />
               </button>
@@ -403,6 +477,7 @@ function App() {
 
           <div className="fdf-map-wrap">
             <MapView
+              ref={mapViewRef}
               destination={selectedDestination}
               onNearbyPlaces={setNearbyPlaces}
               onUserLocationChange={setUserLocation}
@@ -411,19 +486,21 @@ function App() {
 
           <section className="fdf-deals">
             <h3 className="fdf-deals-title">{recommendations.length > 0 ? 'Search results' : 'Restaurants near you'}</h3>
-            <p className="fdf-deals-hint">Use “Use My Location” on the map to load real restaurants.</p>
+            <p className="fdf-deals-hint">
+              Click &quot;Find Deals Near Me&quot; above to load restaurants near you.
+            </p>
             <ul className="fdf-deal-list">
               {(recommendationsLoading || yelpLoading) && (
                 <li className="fdf-deal-item fdf-deal-item--empty">Searching…</li>
               )}
-              {!(recommendationsLoading || yelpLoading) && displayPlaces.length === 0 && (
+              {!(recommendationsLoading || yelpLoading) && normalizedDisplayPlaces.length === 0 && (
                 <li className="fdf-deal-item fdf-deal-item--empty">
                   {yelpRestaurants !== null
                     ? 'No restaurants found. Try a different search.'
-                    : 'No nearby restaurants yet. Search above or allow location and click “Use My Location” below.'}
+                    : 'No nearby restaurants yet. Click "Find Deals Near Me" above to load restaurants near you.'}
                 </li>
               )}
-              {!isYelpSource && !(recommendationsLoading || yelpLoading) && displayPlaces.map((place) => {
+              {!isYelpSource && !(recommendationsLoading || yelpLoading) && normalizedDisplayPlaces.map((place) => {
                 const isApiResult = place.location && typeof place.location.lat === 'number'
                 const location = place.geometry?.location
                 let lat, lng
@@ -434,18 +511,24 @@ function App() {
                   lat = typeof location?.lat === 'function' ? location.lat() : location?.lat
                   lng = typeof location?.lng === 'function' ? location.lng() : location?.lng
                 }
-                const priceLevel = place.price_level != null ? place.price_level : -1
-                const priceStr = priceLevel >= 0 ? '$'.repeat(Math.min(4, priceLevel + 1)) : (place.badge || '—')
+                const priceStr = getPriceRangeLabel(place.price_level) || (place.badge || '—')
                 const hours = place.opening_hours
                 const openNow = hours?.open_now
                 const weekdayText = hours?.weekday_text || []
                 const dayIndex = (new Date().getDay() + 6) % 7
                 const todayHours = weekdayText[dayIndex] ? weekdayText[dayIndex].replace(/^\w+\s*:\s*/, '') : null
                 const hoursLabel = openNow !== undefined ? (openNow ? 'Open now' : 'Closed') : '—'
+                const distanceKm = userLocation && lat != null && lng != null
+                  ? haversineKm(userLocation.lat, userLocation.lng, lat, lng)
+                  : null
+                const distanceStr = distanceKm != null
+                  ? `${distanceKm < 1 ? (distanceKm * 1000).toFixed(0) + ' m' : distanceKm.toFixed(1) + ' km'} · ~${Math.round(distanceKm * 12)} min walk`
+                  : '—'
+                const isClosed = isPlaceOpenNow(place) === false
                 return (
                   <li key={place.place_id || place.id} className="fdf-deal-item">
                     {place.photoUrl && (
-                      <div className="fdf-deal-photo-wrap">
+                      <div className="fdf-deal-photo-wrap fdf-deal-photo-wrap--always">
                         <img src={place.photoUrl} alt="" className="fdf-deal-photo" />
                       </div>
                     )}
@@ -453,30 +536,31 @@ function App() {
                       <strong className="fdf-deal-name">{place.name}</strong>
                       <span className="fdf-deal-details">{place.vicinity || place.details || 'Address not available'}</span>
                       <span className="fdf-deal-price">{priceStr}</span>
+                      <span className="fdf-deal-distance">{distanceStr}</span>
                       <span className="fdf-deal-hours">{hoursLabel}{todayHours ? ` · ${todayHours}` : ''}</span>
                     </div>
                     <button
                       type="button"
-                      className="fdf-btn fdf-btn-secondary"
-                      disabled={lat == null || lng == null}
-                      onClick={() => handleShowRoute(place)}
+                      className={`fdf-btn fdf-btn-secondary${isClosed ? ' fdf-btn-unavailable' : ''}`}
+                      disabled={lat == null || lng == null || isClosed}
+                      onClick={() => !isClosed && handleShowRoute(place)}
                     >
-                      Show Route
+                      {isClosed ? 'Unavailable' : 'Show Route'}
                     </button>
                   </li>
                 )
               })}
-              {isYelpSource && displayPlaces.map((r, index) => (
-                <li key={`yelp-${index}-${r.name}`} className="fdf-deal-item">
+              {isYelpSource && normalizedDisplayPlaces.map((place) => (
+                <li key={place.place_id || place.id} className="fdf-deal-item">
                   <div className="fdf-deal-info">
-                    <strong className="fdf-deal-name">{r.name}</strong>
-                    <span className="fdf-deal-details">{r.address}</span>
-                    <span className="fdf-deal-price">{r.rating != null ? `${r.rating}⭐` : '—'}</span>
+                    <strong className="fdf-deal-name">{place.name}</strong>
+                    <span className="fdf-deal-details">{place.vicinity || place.details || '—'}</span>
+                    <span className="fdf-deal-price">{place.rating != null ? `${place.rating} ⭐` : '—'}</span>
                   </div>
                   <button
                     type="button"
                     className="fdf-btn fdf-btn-secondary"
-                    onClick={() => handleShowRouteYelp(r, index)}
+                    onClick={() => handleShowRoute(place)}
                   >
                     Show Route
                   </button>
@@ -514,12 +598,20 @@ function App() {
                 <img src={selectedPlace.photoUrl} alt="" className="fdf-route-selected-photo" />
               )}
               <h3 className="fdf-route-selected-name">{selectedPlace.name}</h3>
-              <p className="fdf-route-selected-address">{selectedPlace.vicinity || 'Address not available'}</p>
+              <p className="fdf-route-selected-address">{selectedPlace.vicinity || selectedPlace.details || 'Address not available'}</p>
               <p className="fdf-route-selected-price">
-                {selectedPlace.price_level != null
-                  ? '$'.repeat(Math.min(4, selectedPlace.price_level + 1))
-                  : '—'}
+                {getPriceRangeLabel(selectedPlace.price_level)}
               </p>
+              {(() => {
+                const loc = selectedPlace.geometry?.location
+                const lat = typeof loc?.lat === 'function' ? loc?.lat() : loc?.lat
+                const lng = typeof loc?.lng === 'function' ? loc?.lng() : loc?.lng
+                const dist = userLocation && lat != null && lng != null
+                  ? haversineKm(userLocation.lat, userLocation.lng, lat, lng)
+                  : null
+                const distStr = dist != null ? (dist < 1 ? `${(dist * 1000).toFixed(0)} m` : `${dist.toFixed(1)} km`) + ` · ~${Math.round(dist * 12)} min walk` : null
+                return distStr ? <p className="fdf-route-selected-distance">{distStr}</p> : null
+              })()}
               {selectedPlace.opening_hours && (
                 <p className="fdf-route-selected-hours">
                   {selectedPlace.opening_hours.open_now ? 'Open now' : 'Closed'}
@@ -539,6 +631,21 @@ function App() {
                 ) : comparisonResult ? (
                   <p className="fdf-comparison-text">{comparisonResult}</p>
                 ) : null}
+                {comparedPlaces.length > 0 && (
+                  <div className="fdf-compared-with">
+                    <p className="fdf-compared-with-title">Compared with</p>
+                    <div className="fdf-compared-with-list">
+                      {comparedPlaces.map((place) => (
+                        <div key={place.place_id || place.id} className="fdf-compared-with-item">
+                          {place.photoUrl && (
+                            <img src={place.photoUrl} alt="" className="fdf-compared-with-photo" />
+                          )}
+                          <span className="fdf-compared-with-name">{place.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -554,12 +661,14 @@ function App() {
                   const loc = place.geometry?.location
                   const lat = typeof loc?.lat === 'function' ? loc.lat() : loc?.lat
                   const lng = typeof loc?.lng === 'function' ? loc.lng() : loc?.lng
-                  const priceStr = place.price_level != null ? '$'.repeat(Math.min(4, place.price_level + 1)) : '—'
+                  const priceStr = getPriceRangeLabel(place.price_level)
+                  const dist = userLocation && lat != null && lng != null ? haversineKm(userLocation.lat, userLocation.lng, lat, lng) : null
+                  const distStr = dist != null ? (dist < 1 ? `${(dist * 1000).toFixed(0)} m` : `${dist.toFixed(1)} km`) : '—'
                   return (
                     <div key={place.place_id || place.id} className="fdf-route-other-item">
                       <strong>{place.name}</strong>
-                      <span>{place.vicinity || ''}</span>
-                      <span>{priceStr}</span>
+                      <span>{place.vicinity || place.details || ''}</span>
+                      <span>{priceStr} · {distStr}</span>
                       <div className="fdf-other-actions">
                         <button
                           type="button"

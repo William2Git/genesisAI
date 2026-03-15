@@ -1,5 +1,5 @@
 // src/MapView.jsx
-import { useCallback, useEffect, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { GoogleMap, Marker, useLoadScript, DirectionsRenderer } from '@react-google-maps/api';
 
 const containerStyle = {
@@ -18,17 +18,12 @@ const fullScreenContainerStyle = {
 
 const defaultCenter = { lat: 37.7749, lng: -122.4194 }; // fallback (San Francisco)
 
-function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen }) {
+const MapView = forwardRef(function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen }, ref) {
   const [center, setCenter] = useState(defaultCenter);
   const [userLocation, setUserLocation] = useState(null);
   const [directions, setDirections] = useState(null);
   const [map, setMap] = useState(null);
   const [placesLoading, setPlacesLoading] = useState(false);
-
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries: ['places', 'marker'],
-  });
 
   const requestUserLocation = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -47,6 +42,13 @@ function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen
       }
     );
   }, [onUserLocationChange]);
+
+  useImperativeHandle(ref, () => ({ requestUserLocation }), [requestUserLocation]);
+
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    libraries: ['places', 'marker'],
+  });
 
   // If a destination is chosen but we don't yet have the user's location,
   // automatically request it so "Show Route" works even if clicked first.
@@ -76,11 +78,11 @@ function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen
         }
 
         const filteredResults = results.filter((place) => {
-          const types = place.types || [];
+          const types = (place.types || []).map((t) => t.toLowerCase());
           const name = (place.name || '').toLowerCase();
-          const hasHotelType = types.some((t) => ['lodging', 'hotel', 'hostel', 'resort'].includes(t));
-          const hasHotelName = name.includes('hotel') || name.includes('hostel') || name.includes('resort');
-          return !hasHotelType && !hasHotelName;
+          const hasLodgingType = types.some((t) => ['lodging', 'hotel', 'hostel', 'resort', 'motel'].includes(t));
+          const hasLodgingName = /hotel|hostel|resort|motel|\binn\b/.test(name);
+          return !hasLodgingType && !hasLodgingName;
         });
 
         const top = filteredResults.slice(0, 10);
@@ -160,17 +162,7 @@ function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen
   const style = fullScreen ? fullScreenContainerStyle : containerStyle;
 
   return (
-    <div className={fullScreen ? 'fdf-map-view-fullscreen' : ''} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      {!fullScreen && (
-        <button
-          type="button"
-          onClick={requestUserLocation}
-          className="fdf-btn fdf-btn-secondary"
-          style={{ alignSelf: 'flex-start' }}
-        >
-          Use My Location
-        </button>
-      )}
+    <div className={fullScreen ? 'fdf-map-view-fullscreen' : ''} style={{ display: 'flex', flexDirection: 'column', gap: fullScreen ? '0' : '0.75rem' }}>
       <GoogleMap
         mapContainerStyle={style}
         center={center}
@@ -189,6 +181,6 @@ function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen
       </GoogleMap>
     </div>
   );
-}
+});
 
 export default MapView;
