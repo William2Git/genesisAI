@@ -185,37 +185,49 @@ function App() {
     setIsComparing(false)
   }
 
-  const fetchComparison = async (selected, allPlaces) => {
-    // If we have an API URL, strip the end to get the base. Otherwise assume localhost:4000
-    const baseUrl = apiUrl ? apiUrl.replace('/api/recommendations', '') : 'http://localhost:4000'
-    const compareUrl = `${baseUrl}/api/compare`
+  const fetchComparison = async (selected, allPlaces, skipFilter = false) => {
+    const others = skipFilter
+      ? allPlaces
+      : allPlaces.filter(p => (p.place_id || p.id) !== (selected.place_id || selected.id));
 
-    // Filter out the selected place and pick up to 3 others
-    const others = allPlaces.filter(p => (p.place_id || p.id) !== (selected.place_id || selected.id)).slice(0, 3)
-    if (others.length === 0) return
+    if (others.length === 0) return;
 
-    setIsComparing(true)
-    setComparisonResult(null)
+    setIsComparing(true);
+    setComparisonResult(null);
 
     try {
+      const baseUrl = apiUrl ? apiUrl.replace('/api/recommendations', '') : 'http://localhost:4000';
+      const compareUrl = `${baseUrl}/api/compare`;
+
       const res = await fetch(compareUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          restaurant: { name: selected.name, details: selected.details || selected.vicinity, price_level: selected.price_level, rating: selected.rating },
-          otherRestaurants: others.map(o => ({ name: o.name, details: o.details || o.vicinity, price_level: o.price_level, rating: o.rating }))
+          restaurant: {
+            name: selected.name,
+            details: selected.details || selected.vicinity || selected.address || '',
+            price_level: selected.price_level ?? -1,
+            rating: selected.rating ?? 0
+          },
+          otherRestaurants: others.map(o => ({
+            name: o.name,
+            details: o.details || o.vicinity || o.address || '',
+            price_level: o.price_level ?? -1,
+            rating: o.rating ?? 0
+          }))
         })
-      })
-      if (!res.ok) throw new Error('Comparison failed')
-      const data = await res.json()
-      if (data.comparison) setComparisonResult(data.comparison)
+      });
+
+      if (!res.ok) throw new Error('Comparison failed');
+      const data = await res.json();
+      if (data.comparison) setComparisonResult(data.comparison);
     } catch (err) {
-      console.error(err)
-      setComparisonResult('Failed to load comparison.')
+      console.error(err);
+      setComparisonResult('Failed to load comparison.');
     } finally {
-      setIsComparing(false)
+      setIsComparing(false);
     }
-  }
+  };
 
   const yelpToPlace = (r, index) => ({
     id: `yelp-${index}-${r.name}`,
@@ -231,7 +243,7 @@ function App() {
   if (recommendations.length > 0) displayPlaces = recommendations;
   else if (yelpRestaurants != null) displayPlaces = yelpRestaurants;
 
-  const normalizedDisplayPlaces = isYelpSource 
+  const normalizedDisplayPlaces = isYelpSource
     ? displayPlaces.map((r, i) => yelpToPlace(r, i))
     : displayPlaces;
 
@@ -260,9 +272,11 @@ function App() {
   }
 
   const handleDirectCompare = (otherPlace) => {
-    if (!selectedPlace) return
-    fetchComparison(selectedPlace, [otherPlace])
-  }
+    if (!selectedPlace) return;
+
+    // Pass skipFilter=true to avoid filtering out the only place
+    fetchComparison(selectedPlace, [otherPlace], true);
+  };
 
   const remainingPlaces = selectedPlace
     ? normalizedDisplayPlaces.filter((p) => (p.place_id || p.id) !== (selectedPlace.place_id || selectedPlace.id))
