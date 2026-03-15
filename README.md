@@ -80,10 +80,7 @@ You need to create a `.env` file at the root of the project with the following v
 # .env
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 VITE_GOOGLE_MAP_ID=your_google_map_id_here
-VITE_RECOMMENDATIONS_API_URL=http://localhost:4000/api/recommendations
-
-OPENAI_API_KEY=your_openai_api_key_here
-YELP_API_KEY=your_yelp_fusion_api_key_here
+YELP_API_KEY=your_yelp_api_key_here
 ```
 
 ## 🖥️ Usage
