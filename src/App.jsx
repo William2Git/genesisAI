@@ -304,10 +304,22 @@ function App() {
     name: r.name,
     vicinity: r.address,
     rating: r.rating,
-    location: { lat: r.latitude, lng: r.longitude },
-    open_now: r.open_now,
-    is_closed: r.is_closed,
-  });
+  
+    price_level: r.price_level ?? null,
+  
+    photoUrl: r.image_url,
+  
+    location: {
+      lat: r.latitude,
+      lng: r.longitude
+    },
+  
+    opening_hours: {
+      open_now: r.open_now
+    },
+  
+    is_closed: r.is_closed
+  })
 
   const isYelpSource = yelpRestaurants != null && yelpRestaurants.length > 0;
   let displayPlaces = nearbyPlaces;
@@ -500,7 +512,7 @@ function App() {
                     : 'No nearby restaurants yet. Click "Find Deals Near Me" above to load restaurants near you.'}
                 </li>
               )}
-              {!isYelpSource && !(recommendationsLoading || yelpLoading) && normalizedDisplayPlaces.map((place) => {
+              {!(recommendationsLoading || yelpLoading) && normalizedDisplayPlaces.map((place) => {
                 const isApiResult = place.location && typeof place.location.lat === 'number'
                 const location = place.geometry?.location
                 let lat, lng
@@ -550,22 +562,6 @@ function App() {
                   </li>
                 )
               })}
-              {isYelpSource && normalizedDisplayPlaces.map((place) => (
-                <li key={place.place_id || place.id} className="fdf-deal-item">
-                  <div className="fdf-deal-info">
-                    <strong className="fdf-deal-name">{place.name}</strong>
-                    <span className="fdf-deal-details">{place.vicinity || place.details || '—'}</span>
-                    <span className="fdf-deal-price">{place.rating != null ? `${place.rating} ⭐` : '—'}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="fdf-btn fdf-btn-secondary"
-                    onClick={() => handleShowRoute(place)}
-                  >
-                    Show Route
-                  </button>
-                </li>
-              ))}
             </ul>
           </section>
 
