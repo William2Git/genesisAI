@@ -395,8 +395,8 @@ function App() {
             <ForkKnifeIcon />
           </div>
           <div className="fdf-brand-text">
-            <h1 className="fdf-title">Food Discount Finder</h1>
-            <p className="fdf-tagline">Helping students find affordable, yet delicious food nearby</p>
+            <h1 className="fdf-title">Friends2Go</h1>
+            <p className="fdf-tagline">Getting the plans out of the group chat.</p>
           </div>
         </div>
         <nav className="fdf-nav">
@@ -407,10 +407,10 @@ function App() {
       <main className="fdf-main fdf-main--compact">
         <div className="fdf-card">
           <div className="fdf-hero fdf-hero--centered">
-            <span className="fdf-badge">Student budget finder</span>
-            <h2 className="fdf-headline">Find food near you in seconds.</h2>
+            <span className="fdf-badge">AI Plan Generator</span>
+            <h2 className="fdf-headline">Get the plans out of the group chat.</h2>
             <p className="fdf-desc">
-              A responsive website that helps users quickly compare nearby food options by deal, price, distance, and ratings.
+              Friends2Go parses arbitrary ideas from your friend group and turns them into concrete, comparable plans—starting with the perfect food spots near you.
             </p>
             <div className="fdf-cta">
               <button
