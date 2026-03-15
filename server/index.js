@@ -61,7 +61,7 @@ async function getRestaurantComparison(selectedRestaurant, otherRestaurants) {
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful food critique assistant. Compare the selected restaurant with the other nearby options based on the provided details. Keep it brief, no more than 2-3 sentences. Do not use markdown or formatting tags like bolding.',
+          content: 'You are an expert food critic assistant. Compare the selected restaurant with the provided alternative(s) based on the supplied details. Highlight the unique strengths, differences in ambiance, price, rating, and overall vibe. Dive deep into the nuances of each option and provide a thoughtful analysis. Recommend which one might be better depending on the diner\'s specific mood or needs. Provide an engaging and precise comparison. CRITICAL: The response must be around 4-5 sentences, but MUST STRICTLY be less than 100 words. Do not use markdown or formatting tags like bolding.',
         },
         { 
           role: 'user', 
@@ -86,6 +86,7 @@ async function searchYelp(lat, lng, prefs) {
     latitude: String(lat),
     longitude: String(lng),
     term,
+    categories: 'restaurants,food',
     radius: String(radius),
     limit: '3',
     sort_by: 'rating',
@@ -97,7 +98,10 @@ async function searchYelp(lat, lng, prefs) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return (data.businesses || []).slice(0, 3).map((b, i) => ({
+    return (data.businesses || [])
+      .filter((b) => !b.categories?.some((c) => ['hotels', 'hotel', 'resorts', 'hostels'].includes(c.alias)))
+      .slice(0, 3)
+      .map((b, i) => ({
       id: b.id,
       name: b.name,
       details: `${(b.categories?.[0]?.title) || 'Food'} · ${'$'.repeat(b.price?.length || 1)} · ${Number(b.rating).toFixed(1)}★`,

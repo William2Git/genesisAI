@@ -17,6 +17,7 @@ def search_restaurants(food, location):
     params = {
         "term": food,
         "location": location,
+        "categories": "restaurants,food",
         "limit": 10
     }
 
@@ -26,7 +27,10 @@ def search_restaurants(food, location):
 
     restaurants = []
 
-    for r in data["businesses"]:
+    for r in data.get("businesses", []):
+        categories = [c.get("alias", "") for c in r.get("categories", [])]
+        if any(cat in ['hotels', 'hotel', 'resorts', 'hostels'] for cat in categories):
+            continue
 
         restaurant = {
             "name": r["name"],

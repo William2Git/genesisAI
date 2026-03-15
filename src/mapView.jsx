@@ -75,7 +75,15 @@ function MapView({ destination, onNearbyPlaces, onUserLocationChange, fullScreen
           return;
         }
 
-        const top = results.slice(0, 10);
+        const filteredResults = results.filter((place) => {
+          const types = place.types || [];
+          const name = (place.name || '').toLowerCase();
+          const hasHotelType = types.some((t) => ['lodging', 'hotel', 'hostel', 'resort'].includes(t));
+          const hasHotelName = name.includes('hotel') || name.includes('hostel') || name.includes('resort');
+          return !hasHotelType && !hasHotelName;
+        });
+
+        const top = filteredResults.slice(0, 10);
         const enriched = new Array(top.length);
         let pending = top.length;
 
